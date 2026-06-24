@@ -677,13 +677,25 @@ const STATUS_PILL = {
 
 function parseDate(d) {
   if(!d) return null;
+  // Strip time if present (e.g. "1/2/2025" or "2025-01-02 14:00")
+  d = d.split(' ')[0].trim();
   const n = parseFloat(d);
   if(!isNaN(n) && n>40000) {
     return new Date(Date.UTC(1899,11,30)+n*86400000);
   }
   if(d.includes('/')) {
-    const [dd,mm,yy] = d.split('/');
-    return new Date(`${yy?.length===2?'20'+yy:yy}-${mm?.padStart(2,'0')}-${dd?.padStart(2,'0')}`);
+    const parts = d.split('/');
+    if(parts.length === 3) {
+      const [a,b,c] = parts;
+      // Google Sheets exports as M/D/YYYY (US format)
+      const y = c.length===2?'20'+c:c;
+      const mm = b.padStart(2,'0');
+      const dd = a.padStart(2,'0');
+      // If first part > 12, it's DD/MM/YYYY (Brazilian)
+      if(parseInt(a)>12) return new Date(`${y}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`);
+      // Otherwise treat as M/D/YYYY (Google Sheets default)
+      return new Date(`${y}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`);
+    }
   }
   if(d.includes('-')) return new Date(d.substring(0,10));
   return null;
@@ -751,16 +763,54 @@ async function loadData() {
     const text = await resp.text();
     const {data} = Papa.parse(text,{header:true,skipEmptyLines:true});
     if(!data||data.length<2) throw new Error('Planilha vazia');
-    allData = data.map(row=>{
+    // Find the real header row (contains AGENDAMENTO or STATUS)
+    let headerIdx = -1;
+    for(let i=0;i<Math.min(data.length,20);i++){
+      const keys = Object.keys(data[i]).map(k=>k.trim().toUpperCase());
+      const vals = Object.values(data[i]).map(v=>(v||'').trim().toUpperCase());
+      if(keys.some(k=>k==='STATUS'||k==='AGENDAMENTO') || vals.includes('STATUS') || vals.includes('AGENDAMENTO')){
+        headerIdx = i; break;
+      }
+    }
+
+    // Re-parse from header row if needed
+    let rows = data;
+    if(headerIdx > 0) {
+      // The real headers are values in that row, re-parse raw text
+      const lines = text.split('\n');
+      // Find line with STATUS/AGENDAMENTO
+      let realHeaderLine = -1;
+      for(let i=0;i<Math.min(lines.length,25);i++){
+        const u = lines[i].toUpperCase();
+        if(u.includes('STATUS') && u.includes('AGENDAMENTO')){
+          realHeaderLine = i; break;
+        }
+      }
+      if(realHeaderLine >= 0){
+        const reParsed = Papa.parse(lines.slice(realHeaderLine).join('\n'), {header:true, skipEmptyLines:true});
+        rows = reParsed.data;
+      }
+    }
+
+    function parseBRCurrency(v) {
+      if(!v) return 0;
+      // Remove R$, spaces, dots (thousand sep), then replace comma with dot
+      const clean = v.replace(/R\$\s*/gi,'').replace(/\./g,'').replace(',','.').replace(/[^0-9.\-]/g,'');
+      return parseFloat(clean)||0;
+    }
+
+    allData = rows.map(row=>{
       const r={};
       Object.keys(row).forEach(k=>{ r[k.trim().toUpperCase()]=(row[k]||'').trim(); });
+      const status = (r['STATUS']||'').toUpperCase().trim();
+      if(!status) return null;
       const dt = parseDate(r['AGENDAMENTO']||r['DATA DA COTACAO']||r['DATA']||'');
       return {
-        STATUS: r['STATUS']||'',
-        VALOR: parseFloat((r['VALOR']||r['VALOR (R$)']||'0').replace(/[^0-9,.\-]/g,'').replace(',','.'))||0,
+        STATUS: status,
+        VALOR: parseBRCurrency(r['VALOR']||r['VALOR (R$)']||'0'),
         MEDICO: r['MEDICO']||'',
-        TECNICO: r['TECNICO']||'',
-        CONVENIO: r['CONVENIO']||'',
+        TECNICO: r['TECNICO']||r['TÉCNICO']||'',
+        CONVENIO: (r['CONVENIO']||r['CONVÊNIO']||'').replace(/\s+/g,' ').trim(),
         HOSPITAL: r['HOSPITAL']||'',
         ESTADO: r['ESTADO']||'',
         PROC: r['PROC']||'',
@@ -768,7 +818,7 @@ async function loadData() {
         _DATE: dt,
         _DATEYYMM: toYYYYMM(dt),
       };
-    }).filter(r=>r.STATUS);
+    }).filter(r=>r && r.STATUS && r.STATUS.length > 1 && r.STATUS !== 'STATUS');
     populateFilterOptions();
     applyFilters();
     setStatus('Atualizado · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), false);
