@@ -366,7 +366,7 @@ code { background: var(--off); padding: 1px 5px; border-radius: 3px; font-family
     <!-- FONTE DE DADOS -->
     <div class="sidebar-section">
       <div class="sidebar-label">Fonte de Dados</div>
-      <input type="text" class="url-input" id="sheet-url" placeholder="URL Google Sheets CSV…" style="height:30px;font-size:.72rem;">
+      <input type="text" class="url-input" id="sheet-url" placeholder="URL Google Sheets CSV…" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vR9L2evtX_o9C0-TP2Lgsai2rH6rLKYxhBBeeKkmLTtpGYVsLqY7KJ9EAv9d4C3fmdvGwn4w7Gy8N9N/pub?gid=230515105&single=true&output=csv" style="height:30px;font-size:.72rem;">
       <button class="btn btn-primary btn-sm" onclick="loadData()" style="width:100%;justify-content:center;">Carregar</button>
     </div>
 
@@ -474,7 +474,7 @@ code { background: var(--off); padding: 1px 5px; border-radius: 3px; font-family
       <div class="setup-wrap">
         <div class="setup-card">
           <h2>Conectar planilha</h2>
-          <p>Cole o link de exportação CSV do Google Sheets no campo da barra lateral e clique em Carregar — ou use os dados demo para explorar o dashboard.</p>
+          <p>Conectando à planilha automaticamente…</p>
           <div class="demo-bar">
             <button class="btn btn-primary" onclick="loadDemo()" style="height:36px;padding:0 20px;font-size:.82rem;">
               Carregar dados demo
@@ -1174,6 +1174,12 @@ setInterval(()=>{
 }, 5*60*1000);
 
 Chart.defaults.font.family='Inter';
+
+// Auto-load planilha ao abrir
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sheet-url').value = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR9L2evtX_o9C0-TP2Lgsai2rH6rLKYxhBBeeKkmLTtpGYVsLqY7KJ9EAv9d4C3fmdvGwn4w7Gy8N9N/pub?gid=230515105&single=true&output=csv";
+  loadData();
+});
 </script>
 </body>
 </html>
