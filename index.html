@@ -745,20 +745,26 @@ function loadDemo() {
     populateFilterOptions();
     applyFilters();
     setStatus('Dados Demo', false);
-    show('dash-view'); hide('loading-view');
+    if(!silent) show('dash-view');
+    hide('loading-view');
   },400);
 }
 
 // ═══════════════════════════════════════════════
 // LOAD FROM SHEETS
 // ═══════════════════════════════════════════════
-async function loadData() {
+async function loadData(silent=false) {
   const url = document.getElementById('sheet-url').value.trim();
   if(!url){ loadDemo(); return; }
-  show('loading-view'); hide('setup-view'); hide('dash-view'); hide('error-box');
-  setStatus('Carregando…', true);
+  if(!silent) { show('loading-view'); hide('setup-view'); hide('dash-view'); hide('error-box'); }
+  setStatus('Atualizando…', true);
   try {
-    const resp = await fetch(url);
+    // Add timestamp to bypass browser cache
+    const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    const resp = await fetch(bustUrl, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+    });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const text = await resp.text();
     const {data} = Papa.parse(text,{header:true,skipEmptyLines:true});
@@ -822,9 +828,11 @@ async function loadData() {
     populateFilterOptions();
     applyFilters();
     setStatus('Atualizado · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), false);
-    show('dash-view'); hide('loading-view');
+    if(!silent) show('dash-view');
+    hide('loading-view');
   } catch(e) {
-    hide('loading-view'); show('error-box');
+    hide('loading-view');
+    if(!silent) show('error-box'); else console.warn('Silent refresh failed:', e.message);
     document.getElementById('error-msg').textContent = '⚠ '+e.message+' — Verifique o link e se a planilha está publicada como CSV.';
     show('setup-view');
     setStatus('Erro', false);
@@ -1218,10 +1226,12 @@ function setStatus(msg, loading) {
   document.getElementById('status-dot').className='dot'+(loading?' loading':'');
 }
 
-// Auto-refresh every 5 min if URL set
+// Auto-refresh every 2 min if data is loaded
 setInterval(()=>{
-  if(document.getElementById('sheet-url').value.trim() && allData.length>0) loadData();
-}, 5*60*1000);
+  if(document.getElementById('sheet-url').value.trim() && allData.length>0) {
+    loadData(true); // silent refresh
+  }
+}, 2*60*1000);
 
 Chart.defaults.font.family='Inter';
 
