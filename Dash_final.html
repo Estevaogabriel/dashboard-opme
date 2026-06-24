@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPME · Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --white: #ffffff;
+  --off: #f7f8fa;
+  --border: #e8eaed;
+  --border-strong: #d1d5db;
+  --text: #0f1117;
+  --text-2: #4b5563;
+  --text-3: #9ca3af;
+  --accent: #1a56db;
+  --accent-light: #eff4ff;
+  --green: #059669;
+  --green-light: #ecfdf5;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --purple: #7c3aed;
+  --purple-light: #f5f3ff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+html { font-size: 14px; }
+body { font-family: 'Inter', system-ui, sans-serif; background: var(--off); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* ── TOPBAR ── */
+.topbar {
+  height: 52px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 28px; height: 28px;
+  background: var(--text);
+  border-radius: 7px;
+  display: grid; place-items: center;
+  font-size: 13px; color: white;
+}
+.brand-name { font-size: .85rem; font-weight: 600; letter-spacing: -.01em; }
+.brand-sub { font-size: .7rem; color: var(--text-3); font-weight: 400; }
+
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.status-dot { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--text-3); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.dot.loading { background: var(--amber); animation: blink 1s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.btn {
+  height: 30px; padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  font-size: .75rem; font-weight: 500; color: var(--text-2);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: all .15s;
+  font-family: inherit;
+}
+.btn:hover { background: var(--off); border-color: var(--border-strong); color: var(--text); }
+.btn-primary { background: var(--text); color: white; border-color: var(--text); }
+.btn-primary:hover { background: #1f2937; border-color: #1f2937; color: white; }
+
+/* ── LAYOUT ── */
+.layout { display: flex; min-height: calc(100vh - 52px); }
+
+/* ── SIDEBAR FILTERS ── */
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
+}
+
+.sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+.sidebar-label {
+  font-size: .65rem; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding-bottom: 4px;
+}
+.sidebar-divider { height: 1px; background: var(--border); margin: 2px 0; }
+
+/* Checkbox group */
+.check-group { display: flex; flex-direction: column; gap: 2px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background .1s;
+  font-size: .8rem; color: var(--text-2);
+}
+.check-item:hover { background: var(--off); }
+.check-item input[type=checkbox] { display: none; }
+.check-box {
+  width: 15px; height: 15px; border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: white;
+  display: grid; place-items: center;
+  flex-shrink: 0; transition: all .15s;
+}
+.check-box::after {
+  content: ''; width: 7px; height: 5px;
+  border-left: 1.5px solid white; border-bottom: 1.5px solid white;
+  transform: rotate(-45deg) scale(0) translateY(-1px);
+  transition: transform .1s;
+}
+.check-item.checked .check-box { background: var(--text); border-color: var(--text); }
+.check-item.checked .check-box::after { transform: rotate(-45deg) scale(1) translateY(-1px); }
+.check-item.checked { color: var(--text); font-weight: 500; }
+
+.color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Select */
+.filter-select {
+  width: 100%; height: 30px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: white; color: var(--text); font-size: .78rem;
+  font-family: inherit; cursor: pointer; outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+.filter-select:focus { border-color: var(--accent); }
+
+/* Date inputs */
+.date-range { display: flex; flex-direction: column; gap: 4px; }
+.date-label { font-size: .7rem; color: var(--text-3); }
+.date-input {
+  height: 30px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: white; color: var(--text); font-size: .78rem;
+  font-family: inherit; outline: none; width: 100%;
+}
+.date-input:focus { border-color: var(--accent); }
+
+/* Active filter count badge */
+.filter-badge {
+  display: inline-block;
+  background: var(--accent); color: white;
+  font-size: .65rem; font-weight: 700;
+  padding: 1px 5px; border-radius: 10px;
+  margin-left: auto;
+  line-height: 1.4;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 6px;
+}
+.btn-sm { height: 26px; padding: 0 10px; font-size: .72rem; }
+
+/* ── MAIN CONTENT ── */
+.content { flex: 1; padding: 24px; min-width: 0; overflow: hidden; }
+
+/* Page header */
+.page-header { margin-bottom: 20px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { font-size: 1.15rem; font-weight: 600; letter-spacing: -.02em; }
+.page-meta { font-size: .75rem; color: var(--text-3); margin-top: 2px; }
+.header-actions { display: flex; gap: 6px; align-items: center; }
+
+/* Filter summary chips */
+.filter-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; min-height: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--accent-light); color: var(--accent);
+  border: 1px solid #c3d9ff; border-radius: 20px;
+  font-size: .7rem; font-weight: 500; padding: 2px 8px;
+}
+.chip-x { cursor: pointer; opacity: .6; font-size: .75rem; }
+.chip-x:hover { opacity: 1; }
+
+/* ── KPI STRIP ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+@media(max-width:1200px){ .kpi-strip { grid-template-columns: repeat(3,1fr); } }
+@media(max-width:700px){ .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: box-shadow .15s;
+}
+.kpi:hover { box-shadow: var(--shadow); }
+.kpi-label { font-size: .68rem; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+.kpi-value { font-size: 1.35rem; font-weight: 700; letter-spacing: -.03em; color: var(--text); line-height: 1; }
+.kpi-sub { font-size: .68rem; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+.kpi-delta { font-weight: 600; }
+.kpi-delta.up { color: var(--green); }
+.kpi-delta.down { color: var(--red); }
+.kpi-accent-line { height: 2px; width: 24px; border-radius: 2px; margin-top: 2px; }
+
+/* ── SECTION ── */
+.section { margin-bottom: 20px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.section-title { font-size: .75rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; }
+.section-toggle { display: flex; gap: 2px; }
+.toggle-btn {
+  height: 24px; padding: 0 8px;
+  border: 1px solid var(--border); background: white;
+  font-size: .68rem; font-weight: 500; color: var(--text-3);
+  cursor: pointer; font-family: inherit;
+  transition: all .1s;
+}
+.toggle-btn:first-child { border-radius: 5px 0 0 5px; }
+.toggle-btn:last-child { border-radius: 0 5px 5px 0; }
+.toggle-btn.active { background: var(--text); color: white; border-color: var(--text); }
+
+/* ── CHARTS GRID ── */
+.charts-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.charts-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.chart-1 { margin-bottom: 12px; }
+@media(max-width:900px){ .charts-2,.charts-3 { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.card-head { margin-bottom: 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.card-title { font-size: .78rem; font-weight: 600; color: var(--text); }
+.card-sub { font-size: .68rem; color: var(--text-3); margin-top: 1px; }
+.card-badge {
+  font-size: .65rem; font-weight: 600; padding: 2px 7px;
+  border-radius: 4px; white-space: nowrap; flex-shrink: 0;
+}
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-blue { background: var(--accent-light); color: var(--accent); }
+.badge-amber { background: var(--amber-light); color: var(--amber); }
+.badge-purple { background: var(--purple-light); color: var(--purple); }
+
+canvas { max-height: 240px; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+thead { border-bottom: 1px solid var(--border); }
+th { padding: 8px 12px; text-align: left; font-size: .65rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--off); }
+.td-main { color: var(--text); font-weight: 500; }
+.td-num { font-variant-numeric: tabular-nums; }
+.td-rank { color: var(--text-3); font-size: .7rem; font-weight: 600; }
+
+/* Status pills */
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: .68rem; font-weight: 600; }
+.pill-green { background: var(--green-light); color: var(--green); }
+.pill-red { background: var(--red-light); color: var(--red); }
+.pill-amber { background: var(--amber-light); color: var(--amber); }
+.pill-blue { background: var(--accent-light); color: var(--accent); }
+.pill-gray { background: var(--off); color: var(--text-3); }
+.pill-purple { background: var(--purple-light); color: var(--purple); }
+
+/* Progress bar */
+.prog-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; width: 80px; }
+.prog-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+
+/* ── LOADING / SETUP ── */
+.setup-wrap { max-width: 560px; margin: 60px auto 0; }
+.setup-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+.setup-card h2 { font-size: .95rem; font-weight: 600; margin-bottom: 6px; }
+.setup-card p { font-size: .78rem; color: var(--text-3); margin-bottom: 20px; line-height: 1.6; }
+.url-row { display: flex; gap: 8px; }
+.url-input {
+  flex: 1; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: white; color: var(--text); font-size: .78rem; font-family: inherit;
+  outline: none;
+}
+.url-input:focus { border-color: var(--accent); }
+.steps-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.step-row { display: flex; gap: 10px; align-items: flex-start; font-size: .75rem; color: var(--text-2); line-height: 1.5; }
+.step-n { min-width: 20px; height: 20px; background: var(--off); border: 1px solid var(--border); border-radius: 50%; display: grid; place-items: center; font-size: .65rem; font-weight: 700; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+code { background: var(--off); padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: .72rem; }
+.demo-bar { text-align: center; margin-top: 16px; }
+
+.loading-center { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; gap: 14px; }
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: .8rem; color: var(--text-3); }
+
+.error-box { background: var(--red-light); border: 1px solid #fca5a5; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+.error-box p { font-size: .78rem; color: var(--red); }
+
+/* Sidebar mobile toggle */
+.sidebar-toggle { display: none; }
+@media(max-width:768px){
+  .layout { flex-direction: column; }
+  .sidebar { position: static; height: auto; width: 100%; min-width: 0; }
+  .sidebar-toggle { display: flex; }
+  .sidebar.collapsed { display: none; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* Empty state */
+.empty { text-align: center; padding: 32px 16px; color: var(--text-3); font-size: .8rem; }
+.empty span { display: block; font-size: 1.5rem; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">🫀</div>
+    <div>
+      <div class="brand-name">OPME Dashboard</div>
+      <div class="brand-sub">Relatório de Gestão</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-dot">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">–</span>
+    </div>
+    <button class="btn" onclick="loadData()">↻ Atualizar</button>
+    <button class="btn btn-primary" onclick="loadDemo()">Demo</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- FONTE DE DADOS -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Fonte de Dados</div>
+      <input type="text" class="url-input" id="sheet-url" placeholder="URL Google Sheets CSV…" style="height:30px;font-size:.72rem;">
+      <button class="btn btn-primary btn-sm" onclick="loadData()" style="width:100%;justify-content:center;">Carregar</button>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- SOCIEDADES -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sociedade <span class="filter-badge" id="badge-soc" style="display:none"></span></div>
+      <div class="check-group" id="filter-society">
+        <div class="check-item checked" data-val="SAO JUDAS">
+          <div class="check-box"></div>
+          <div class="color-dot" style="background:#1a56db"></div>
+          São Judas
+        </div>
+        <div class="check-item checked" data-val="MICROPORT">
+          <div class="check-box"></div>
+          <div class="color-dot" style="background:#7c3aed"></div>
+          Microport
+        </div>
+        <div class="check-item checked" data-val="SCP_BIO">
+          <div class="check-box"></div>
+          <div class="color-dot" style="background:#059669"></div>
+          SCP Bio
+        </div>
+        <div class="check-item checked" data-val="NOVOS NEGOCIOS">
+          <div class="check-box"></div>
+          <div class="color-dot" style="background:#d97706"></div>
+          Novos Negócios
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- STATUS -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Status <span class="filter-badge" id="badge-status" style="display:none"></span></div>
+      <div class="check-group" id="filter-status">
+        <div class="check-item checked" data-val="REALIZADO"><div class="check-box"></div><div class="color-dot" style="background:#059669"></div>Realizado</div>
+        <div class="check-item checked" data-val="AUTORIZADO"><div class="check-box"></div><div class="color-dot" style="background:#1a56db"></div>Autorizado</div>
+        <div class="check-item checked" data-val="EM COTACAO"><div class="check-box"></div><div class="color-dot" style="background:#d97706"></div>Em Cotação</div>
+        <div class="check-item checked" data-val="NEGADO"><div class="check-box"></div><div class="color-dot" style="background:#dc2626"></div>Negado</div>
+        <div class="check-item checked" data-val="CANCELADO"><div class="check-box"></div><div class="color-dot" style="background:#9ca3af"></div>Cancelado</div>
+        <div class="check-item checked" data-val="REALIZADO OUTRO FORN"><div class="check-box"></div><div class="color-dot" style="background:#7c3aed"></div>Real. outro forn.</div>
+        <div class="check-item checked" data-val="SEM RETORNO"><div class="check-box"></div><div class="color-dot" style="background:#6b7280"></div>Sem retorno</div>
+        <div class="check-item checked" data-val="DESISTENCIA"><div class="check-box"></div><div class="color-dot" style="background:#f59e0b"></div>Desistência</div>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- ESTADO -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Estado</div>
+      <select class="filter-select" id="filter-estado" onchange="applyFilters()">
+        <option value="">Todos os estados</option>
+      </select>
+    </div>
+
+    <!-- CONVÊNIO -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Convênio</div>
+      <select class="filter-select" id="filter-convenio" onchange="applyFilters()">
+        <option value="">Todos os convênios</option>
+      </select>
+    </div>
+
+    <!-- TÉCNICO -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Técnico</div>
+      <select class="filter-select" id="filter-tecnico" onchange="applyFilters()">
+        <option value="">Todos os técnicos</option>
+      </select>
+    </div>
+
+    <!-- PERÍODO -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Período</div>
+      <div class="date-range">
+        <div class="date-label">De</div>
+        <input type="date" class="date-input" id="filter-date-from" onchange="applyFilters()">
+        <div class="date-label">Até</div>
+        <input type="date" class="date-input" id="filter-date-to" onchange="applyFilters()">
+      </div>
+    </div>
+
+    <!-- VALOR MÍNIMO -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Valor mínimo (R$)</div>
+      <input type="number" class="date-input" id="filter-valor-min" placeholder="0" oninput="applyFilters()">
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-sm" onclick="resetFilters()" style="flex:1;justify-content:center;">Limpar filtros</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="content" id="main-content">
+
+    <!-- SETUP -->
+    <div id="setup-view">
+      <div class="setup-wrap">
+        <div class="setup-card">
+          <h2>Conectar planilha</h2>
+          <p>Cole o link de exportação CSV do Google Sheets no campo da barra lateral e clique em Carregar — ou use os dados demo para explorar o dashboard.</p>
+          <div class="demo-bar">
+            <button class="btn btn-primary" onclick="loadDemo()" style="height:36px;padding:0 20px;font-size:.82rem;">
+              Carregar dados demo
+            </button>
+          </div>
+          <div class="steps-list">
+            <div class="step-row"><div class="step-n">1</div><span>No Sheets: <strong>Arquivo → Compartilhar → Publicar na web</strong></span></div>
+            <div class="step-row"><div class="step-n">2</div><span>Escolha a aba, formato <strong>CSV</strong> → Publicar</span></div>
+            <div class="step-row"><div class="step-n">3</div><span>Cole o link <code>https://docs.google.com/spreadsheets/d/e/2PACX-…</code> na barra lateral</span></div>
+            <div class="step-row"><div class="step-n">4</div><span>Compartilhe este <code>.html</code> com qualquer pessoa — funciona em qualquer navegador</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading-view" style="display:none">
+      <div class="loading-center">
+        <div class="spinner"></div>
+        <div class="loading-text">Carregando dados…</div>
+      </div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-box" id="error-box" style="display:none">
+      <p id="error-msg"></p>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dash-view" style="display:none">
+
+      <!-- Page header + chips -->
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="dash-title">Visão Geral</div>
+          <div class="page-meta" id="dash-meta">–</div>
+        </div>
+        <div class="header-actions">
+          <div class="filter-chips" id="filter-chips" style="margin-bottom:0;max-width:420px;"></div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-strip" id="kpi-strip"></div>
+
+      <!-- Charts row 1: Status + Valor -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Distribuição</div>
+          <div class="section-toggle">
+            <button class="toggle-btn active" onclick="setChartView('count',this)">Quantidade</button>
+            <button class="toggle-btn" onclick="setChartView('valor',this)">Valor</button>
+          </div>
+        </div>
+        <div class="charts-2">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Por Status</div><div class="card-sub">Procedimentos filtrados</div></div>
+              <span class="card-badge badge-blue">Rosca</span>
+            </div>
+            <canvas id="c-status-donut"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Por Sociedade</div><div class="card-sub">Comparativo entre empresas</div></div>
+              <span class="card-badge badge-purple">Barras</span>
+            </div>
+            <canvas id="c-soc-bar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart row 2: Timeline -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Evolução Temporal</div>
+          <div class="section-toggle">
+            <button class="toggle-btn active" onclick="setTimeView('realizado',this)">Realizados</button>
+            <button class="toggle-btn" onclick="setTimeView('all',this)">Todos</button>
+          </div>
+        </div>
+        <div class="chart-1 card">
+          <div class="card-head">
+            <div><div class="card-title">Valor por mês</div><div class="card-sub">Evolução acumulada</div></div>
+            <span class="card-badge badge-green">Linha</span>
+          </div>
+          <canvas id="c-timeline" style="max-height:200px"></canvas>
+        </div>
+      </div>
+
+      <!-- Charts row 3: Convênio + Estado -->
+      <div class="section">
+        <div class="section-head"><div class="section-title">Cobertura</div></div>
+        <div class="charts-2">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Top Convênios</div><div class="card-sub">Por valor realizado</div></div>
+              <span class="card-badge badge-green">Barras</span>
+            </div>
+            <canvas id="c-convenio"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Distribuição por Estado</div><div class="card-sub">Procedimentos realizados</div></div>
+              <span class="card-badge badge-amber">Pizza</span>
+            </div>
+            <canvas id="c-estado"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tables -->
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Médicos</div>
+          <div class="section-toggle">
+            <button class="toggle-btn active" onclick="setMedView('valor',this)">Valor</button>
+            <button class="toggle-btn" onclick="setMedView('qtd',this)">Quantidade</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Médico</th>
+                  <th>Realizados</th>
+                  <th>Valor Total</th>
+                  <th>Ticket Médio</th>
+                  <th>Taxa Sucesso</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="t-medicos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><div class="section-title">Técnicos</div></div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Técnico</th>
+                  <th>Total</th>
+                  <th>Realizados</th>
+                  <th>Negados</th>
+                  <th>Cancelados</th>
+                  <th>Taxa Sucesso</th>
+                </tr>
+              </thead>
+              <tbody id="t-tecnicos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dash-view -->
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let allData = [];
+let filtered = [];
+let charts = {};
+let chartViewMode = 'count';   // count | valor
+let timeViewMode = 'realizado'; // realizado | all
+let medViewMode = 'valor';     // valor | qtd
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+const R = (v) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
+const Rs = (v) => {
+  if(v>=1e6) return 'R$ '+(v/1e6).toFixed(1)+'M';
+  if(v>=1e3) return 'R$ '+(v/1e3).toFixed(0)+'K';
+  return R(v);
+};
+const pct = (a,b) => b>0 ? (a/b*100).toFixed(1)+'%' : '–';
+
+const SOC_COLORS = { 'SAO JUDAS':'#1a56db','MICROPORT':'#7c3aed','SCP_BIO':'#059669','NOVOS NEGOCIOS':'#d97706' };
+const STATUS_COLORS = {
+  'REALIZADO':'#059669','NEGADO':'#dc2626','CANCELADO':'#9ca3af',
+  'AUTORIZADO':'#1a56db','EM COTACAO':'#d97706','REALIZADO OUTRO FORN':'#7c3aed',
+  'SEM RETORNO':'#6b7280','DESISTENCIA':'#f59e0b','FALECIMENTO PCTE':'#374151',
+};
+const STATUS_PILL = {
+  'REALIZADO':'pill-green','NEGADO':'pill-red','CANCELADO':'pill-gray',
+  'AUTORIZADO':'pill-blue','EM COTACAO':'pill-amber','REALIZADO OUTRO FORN':'pill-purple',
+  'SEM RETORNO':'pill-gray','DESISTENCIA':'pill-amber','FALECIMENTO PCTE':'pill-gray',
+};
+
+function parseDate(d) {
+  if(!d) return null;
+  const n = parseFloat(d);
+  if(!isNaN(n) && n>40000) {
+    return new Date(Date.UTC(1899,11,30)+n*86400000);
+  }
+  if(d.includes('/')) {
+    const [dd,mm,yy] = d.split('/');
+    return new Date(`${yy?.length===2?'20'+yy:yy}-${mm?.padStart(2,'0')}-${dd?.padStart(2,'0')}`);
+  }
+  if(d.includes('-')) return new Date(d.substring(0,10));
+  return null;
+}
+
+function toYYYYMM(dt) {
+  if(!dt||isNaN(dt)) return null;
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+
+function monthLabel(ym) {
+  const [y,m] = ym.split('-');
+  return new Date(+y,+m-1).toLocaleString('pt-BR',{month:'short',year:'2-digit'});
+}
+
+function detectSociety(emp) {
+  if(emp==='1') return 'SAO JUDAS';
+  if(emp==='23') return 'MICROPORT';
+  if(emp==='25') return 'SCP_BIO';
+  if(emp==='28') return 'NOVOS NEGOCIOS';
+  return 'SAO JUDAS';
+}
+
+// ═══════════════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════════════
+function genDemo() {
+  const medicos=['DR. RENNER AUGUSTO','DR. ANDRE QUEIROGA','DR. ALVARO B. COSTA','DR. SYLTON MELO','DR. IGOR ERCOLIN','DR. GUSTAVO TORRES','DR. EMERSON URSULINO','DR. DANIEL MOURA','DR. GABRIEL TARGUETA','DR. MAURILIO ONOFRE','DR. EDVALDO XAVIER','DR. ALBERTO NICODEMUS','DRA. TATIANA PEREIRA','DR. JEAN ALBERTY','DR. PEDRO YURI'];
+  const tecs=['LUIZ NOGUEIRA','ALASKA','GUTEMBERG XAVIER','DOMINICOS NETTO','EZEAN CAMPELO','GUSTAVO BARROS','ANA PAULA PINHEIRO','RAFAEL ARRAIS','ALLAN CORREA'];
+  const convs=['SUS','UNIMED JP','UNIMED NATAL','BRADESCO','HAP VIDA CE','CASSI RN','UNIMED CE','AMIL','CASSI PB','UNIMED MACEIO','PETROBRÁS','SULAMERICA','GEAP PB','PARTICULAR'];
+  const estados=['PB','RN','CE','PE','AL','PI','MA'];
+  const statuses=['REALIZADO','REALIZADO','REALIZADO','NEGADO','CANCELADO','AUTORIZADO','EM COTACAO','REALIZADO OUTRO FORN','SEM RETORNO','DESISTENCIA'];
+  const socs=['SAO JUDAS','SAO JUDAS','SAO JUDAS','MICROPORT','SCP_BIO','NOVOS NEGOCIOS'];
+  const procs={'SAO JUDAS':['MP DR','MP FISIO','CDI+BIV','CDI DR','BIV','ABL','EEF','ELETRODO','TR MP DR'],'MICROPORT':['ABL COMPL','EEF'],'SCP_BIO':['MP DR','MP FISIO','CDI+BIV','TR MP DR'],'NOVOS NEGOCIOS':['ENDOPROTE','EMPRINT','COOL-TIP','EMRRINT']};
+  const rows=[];
+  for(let y=2024;y<=2026;y++){const mx=y===2026?6:12;for(let m=1;m<=mx;m++){const cnt=40+Math.floor(Math.random()*40);for(let i=0;i<cnt;i++){const soc=socs[Math.floor(Math.random()*socs.length)];const st=statuses[Math.floor(Math.random()*statuses.length)];const isAbl=soc==='MICROPORT';const isVasc=soc==='NOVOS NEGOCIOS';const v=isAbl?35000+Math.random()*80000:isVasc?10000+Math.random()*130000:5000+Math.random()*100000;const d=new Date(y,m-1,1+Math.floor(Math.random()*27));rows.play({STATUS:st,VALOR:v,MEDICO:medicos[Math.floor(Math.random()*medicos.length)],TECNICO:tecs[Math.floor(Math.random()*tecs.length)],CONVENIO:convs[Math.floor(Math.random()*convs.length)],HOSPITAL:'HOSPITAL DEMO',ESTADO:estados[Math.floor(Math.random()*estados.length)],PROC:(procs[soc]||procs['SAO JUDAS'])[Math.floor(Math.random()*(procs[soc]||procs['SAO JUDAS']).length)],_SOC:soc,_DATE:d,_DATEYYMM:toYYYYMM(d)});}}}
+  return rows;
+}
+// patch Array play → push
+Array.prototype.play = Array.prototype.push;
+
+function loadDemo() {
+  show('loading-view');
+  hide('setup-view'); hide('error-box');
+  setTimeout(()=>{
+    allData = genDemo();
+    populateFilterOptions();
+    applyFilters();
+    setStatus('Dados Demo', false);
+    show('dash-view'); hide('loading-view');
+  },400);
+}
+
+// ═══════════════════════════════════════════════
+// LOAD FROM SHEETS
+// ═══════════════════════════════════════════════
+async function loadData() {
+  const url = document.getElementById('sheet-url').value.trim();
+  if(!url){ loadDemo(); return; }
+  show('loading-view'); hide('setup-view'); hide('dash-view'); hide('error-box');
+  setStatus('Carregando…', true);
+  try {
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const text = await resp.text();
+    const {data} = Papa.parse(text,{header:true,skipEmptyLines:true});
+    if(!data||data.length<2) throw new Error('Planilha vazia');
+    allData = data.map(row=>{
+      const r={};
+      Object.keys(row).forEach(k=>{ r[k.trim().toUpperCase()]=(row[k]||'').trim(); });
+      const dt = parseDate(r['AGENDAMENTO']||r['DATA DA COTACAO']||r['DATA']||'');
+      return {
+        STATUS: r['STATUS']||'',
+        VALOR: parseFloat((r['VALOR']||r['VALOR (R$)']||'0').replace(/[^0-9,.\-]/g,'').replace(',','.'))||0,
+        MEDICO: r['MEDICO']||'',
+        TECNICO: r['TECNICO']||'',
+        CONVENIO: r['CONVENIO']||'',
+        HOSPITAL: r['HOSPITAL']||'',
+        ESTADO: r['ESTADO']||'',
+        PROC: r['PROC']||'',
+        _SOC: detectSociety(r['EMPRESA']||'1'),
+        _DATE: dt,
+        _DATEYYMM: toYYYYMM(dt),
+      };
+    }).filter(r=>r.STATUS);
+    populateFilterOptions();
+    applyFilters();
+    setStatus('Atualizado · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), false);
+    show('dash-view'); hide('loading-view');
+  } catch(e) {
+    hide('loading-view'); show('error-box');
+    document.getElementById('error-msg').textContent = '⚠ '+e.message+' — Verifique o link e se a planilha está publicada como CSV.';
+    show('setup-view');
+    setStatus('Erro', false);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// FILTER HELPERS
+// ═══════════════════════════════════════════════
+function populateFilterOptions() {
+  const estados = [...new Set(allData.map(r=>r.ESTADO).filter(Boolean))].sort();
+  const convs = [...new Set(allData.map(r=>r.CONVENIO).filter(Boolean))].sort();
+  const tecs = [...new Set(allData.map(r=>r.TECNICO).filter(Boolean))].sort();
+  fillSelect('filter-estado', estados);
+  fillSelect('filter-convenio', convs);
+  fillSelect('filter-tecnico', tecs);
+}
+
+function fillSelect(id, opts) {
+  const el = document.getElementById(id);
+  const cur = el.value;
+  while(el.options.length>1) el.remove(1);
+  opts.forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o; el.appendChild(op); });
+  if(opts.includes(cur)) el.value=cur;
+}
+
+function getCheckedVals(groupId) {
+  return [...document.querySelectorAll(`#${groupId} .check-item.checked`)].map(el=>el.dataset.val);
+}
+
+function applyFilters() {
+  const socs = getCheckedVals('filter-society');
+  const statuses = getCheckedVals('filter-status');
+  const estado = document.getElementById('filter-estado').value;
+  const convenio = document.getElementById('filter-convenio').value;
+  const tecnico = document.getElementById('filter-tecnico').value;
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('filter-date-to').value;
+  const valorMin = parseFloat(document.getElementById('filter-valor-min').value)||0;
+
+  filtered = allData.filter(r=>{
+    if(!socs.includes(r._SOC)) return false;
+    if(!statuses.includes(r.STATUS)) return false;
+    if(estado && r.ESTADO!==estado) return false;
+    if(convenio && r.CONVENIO!==convenio) return false;
+    if(tecnico && r.TECNICO!==tecnico) return false;
+    if(r.VALOR<valorMin) return false;
+    if(r._DATE) {
+      if(dateFrom && r._DATE<new Date(dateFrom)) return false;
+      if(dateTo && r._DATE>new Date(dateTo+'T23:59:59')) return false;
+    }
+    return true;
+  });
+
+  updateBadges(socs, statuses);
+  renderChips(socs, statuses, estado, convenio, tecnico, dateFrom, dateTo, valorMin);
+  renderAll();
+}
+
+function updateBadges(socs, statuses) {
+  const badgeSoc = document.getElementById('badge-soc');
+  const miss = 4 - socs.length;
+  badgeSoc.textContent = miss; badgeSoc.style.display = miss>0?'':'none';
+  const badgeStatus = document.getElementById('badge-status');
+  const missS = 8 - statuses.length;
+  badgeStatus.textContent = missS; badgeStatus.style.display = missS>0?'':'none';
+}
+
+function renderChips(socs, statuses, estado, convenio, tecnico, df, dt, vm) {
+  const chips = document.getElementById('filter-chips');
+  const items = [];
+  if(socs.length<4) items.push({label:'Sociedades: '+socs.length+'/4',key:'soc'});
+  if(statuses.length<8) items.push({label:'Status: '+statuses.length+'/8',key:'status'});
+  if(estado) items.push({label:'Estado: '+estado,key:'estado'});
+  if(convenio) items.push({label:convenio,key:'convenio'});
+  if(tecnico) items.push({label:tecnico,key:'tecnico'});
+  if(df) items.push({label:'De: '+df,key:'df'});
+  if(dt) items.push({label:'Até: '+dt,key:'dt'});
+  if(vm>0) items.push({label:'Valor ≥ '+Rs(vm),key:'vm'});
+  chips.innerHTML = items.map(i=>`<span class="chip">${i.label}<span class="chip-x" onclick="clearChip('${i.key}')">✕</span></span>`).join('');
+}
+
+function clearChip(key) {
+  if(key==='estado') document.getElementById('filter-estado').value='';
+  if(key==='convenio') document.getElementById('filter-convenio').value='';
+  if(key==='tecnico') document.getElementById('filter-tecnico').value='';
+  if(key==='df') document.getElementById('filter-date-from').value='';
+  if(key==='dt') document.getElementById('filter-date-to').value='';
+  if(key==='vm') document.getElementById('filter-valor-min').value='';
+  if(key==='soc') { document.querySelectorAll('#filter-society .check-item').forEach(el=>{ el.classList.add('checked'); el.querySelector('input').checked=true; }); }
+  if(key==='status') { document.querySelectorAll('#filter-status .check-item').forEach(el=>{ el.classList.add('checked'); el.querySelector('input').checked=true; }); }
+  applyFilters();
+}
+
+function resetFilters() {
+  document.querySelectorAll('#filter-society .check-item, #filter-status .check-item').forEach(el=>{ el.classList.add('checked'); el.querySelector('input').checked=true; });
+  ['filter-estado','filter-convenio','filter-tecnico'].forEach(id=>document.getElementById(id).value='');
+  ['filter-date-from','filter-date-to','filter-valor-min'].forEach(id=>document.getElementById(id).value='');
+  applyFilters();
+}
+
+// Checkbox toggle
+document.addEventListener('click', e=>{
+  const item = e.target.closest('.check-item');
+  if(!item) return;
+  item.classList.toggle('checked');
+  applyFilters();
+});
+
+// ═══════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════
+function renderAll() {
+  updateMeta();
+  renderKPIs();
+  renderStatusDonut();
+  renderSocBar();
+  renderTimeline();
+  renderConvenio();
+  renderEstado();
+  renderMedicos();
+  renderTecnicos();
+}
+
+function updateMeta() {
+  const socs = getCheckedVals('filter-society');
+  document.getElementById('dash-title').textContent = socs.length===1 ? ({SAO_JUDAS:'São Judas',MICROPORT:'Microport',SCP_BIO:'SCP Bio','NOVOS NEGOCIOS':'Novos Negócios'}[socs[0].replace(' ','_')]||socs[0]) : 'Visão Geral';
+  document.getElementById('dash-meta').textContent = `${filtered.length.toLocaleString('pt-BR')} procedimentos filtrados de ${allData.length.toLocaleString('pt-BR')} total`;
+}
+
+// ═══════════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════════
+function renderKPIs() {
+  const real = filtered.filter(r=>r.STATUS==='REALIZADO');
+  const neg = filtered.filter(r=>r.STATUS==='NEGADO');
+  const aut = filtered.filter(r=>r.STATUS==='AUTORIZADO');
+  const cotacao = filtered.filter(r=>r.STATUS==='EM COTACAO');
+  const totalR = real.reduce((a,r)=>a+r.VALOR,0);
+  const totalC = cotacao.reduce((a,r)=>a+r.VALOR,0);
+  const totalA = aut.reduce((a,r)=>a+r.VALOR,0);
+  const totalN = neg.reduce((a,r)=>a+r.VALOR,0);
+  const ticket = real.length>0?totalR/real.length:0;
+  const taxa = filtered.length>0?(real.length/filtered.length*100).toFixed(1):0;
+
+  const kpis=[
+    {label:'Total Realizado',val:Rs(totalR),sub:real.length+' procedimentos',color:'#059669'},
+    {label:'Em Cotação',val:Rs(totalC),sub:cotacao.length+' aguardando',color:'#1a56db'},
+    {label:'Autorizado',val:Rs(totalA),sub:aut.length+' procedimentos',color:'#7c3aed'},
+    {label:'Negado',val:Rs(totalN),sub:neg.length+' procedimentos',color:'#dc2626'},
+    {label:'Taxa de Conversão',val:taxa+'%',sub:'Realizados / total',color:'#059669'},
+    {label:'Ticket Médio',val:Rs(ticket),sub:'Por procedimento',color:'#d97706'},
+  ];
+
+  document.getElementById('kpi-strip').innerHTML = kpis.map(k=>`
+    <div class="kpi">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <div class="kpi-accent-line" style="background:${k.color}"></div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════
+function dc(id) { if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+const CHART_DEFAULTS = {
+  plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#0f1117', titleColor:'#e5e7eb', bodyColor:'#9ca3af', padding:10, cornerRadius:6, borderColor:'#1f2937', borderWidth:1 } },
+  font:{ family:'Inter' },
+};
+
+function renderStatusDonut() {
+  dc('sd');
+  const use = chartViewMode==='valor';
+  const agg={};
+  filtered.forEach(r=>{ agg[r.STATUS]=(agg[r.STATUS]||0)+(use?r.VALOR:1); });
+  const entries=Object.entries(agg).sort((a,b)=>b[1]-a[1]);
+  const ctx=document.getElementById('c-status-donut').getContext('2d');
+  charts['sd']=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:entries.map(e=>e[0]),
+      datasets:[{data:entries.map(e=>e[1]),backgroundColor:entries.map(e=>STATUS_COLORS[e[0]]||'#ccc'),borderColor:'#fff',borderWidth:2,hoverOffset:4}]
+    },
+    options:{...CHART_DEFAULTS,responsive:true,cutout:'68%',
+      plugins:{...CHART_DEFAULTS.plugins,
+        legend:{display:true,position:'right',labels:{color:'#6b7280',font:{family:'Inter',size:11},padding:10,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{...CHART_DEFAULTS.plugins.tooltip,callbacks:{label:ctx=>' '+ctx.label+': '+(use?Rs(ctx.raw):ctx.raw.toLocaleString('pt-BR'))}}
+      }
+    }
+  });
+}
+
+function renderSocBar() {
+  dc('sb');
+  const use=chartViewMode==='valor';
+  const socs=['SAO JUDAS','MICROPORT','SCP_BIO','NOVOS NEGOCIOS'];
+  const labels=['São Judas','Microport','SCP Bio','Novos Neg.'];
+  const vals=socs.map(s=>filtered.filter(r=>r._SOC===s).reduce((a,r)=>a+(use?r.VALOR:1),0));
+  const ctx=document.getElementById('c-soc-bar').getContext('2d');
+  charts['sb']=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:socs.map(s=>SOC_COLORS[s]+'cc'),borderColor:socs.map(s=>SOC_COLORS[s]),borderWidth:1.5,borderRadius:5,borderSkipped:false}]},
+    options:{...CHART_DEFAULTS,responsive:true,
+      plugins:{...CHART_DEFAULTS.plugins,tooltip:{...CHART_DEFAULTS.plugins.tooltip,callbacks:{label:ctx=>' '+(use?Rs(ctx.raw):ctx.raw.toLocaleString('pt-BR'))}}},
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{family:'Inter',size:11}},grid:{display:false},border:{display:false}},
+        y:{ticks:{color:'#9ca3af',font:{family:'Inter',size:11},callback:v=>use?Rs(v):v},grid:{color:'#f3f4f6'},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderTimeline() {
+  dc('tl');
+  const useAll=timeViewMode==='all';
+  const src=useAll?filtered:filtered.filter(r=>r.STATUS==='REALIZADO');
+  const monthly={};
+  src.forEach(r=>{ if(!r._DATEYYMM)return; monthly[r._DATEYYMM]=(monthly[r._DATEYYMM]||0)+r.VALOR; });
+  const entries=Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length){ dc('tl'); return; }
+
+  // Multi-line by society if all active
+  const socs=getCheckedVals('filter-society');
+  let datasets;
+  if(socs.length>1 && socs.length<=4) {
+    datasets=socs.map(soc=>({
+      label:({SAO_JUDAS:'São Judas',MICROPORT:'Microport',SCP_BIO:'SCP Bio','NOVOS NEGOCIOS':'Novos Neg.'}[soc.replace(' ','_')]||soc),
+      data:entries.map(([ym])=>{ const src2=useAll?filtered:filtered.filter(r=>r.STATUS==='REALIZADO'); return src2.filter(r=>r._SOC===soc&&r._DATEYYMM===ym).reduce((a,r)=>a+r.VALOR,0); }),
+      borderColor:SOC_COLORS[soc],
+      backgroundColor:SOC_COLORS[soc]+'18',
+      fill:false,tension:.4,pointRadius:3,pointHoverRadius:5,borderWidth:2,
+    }));
+  } else {
+    datasets=[{
+      label:'Valor',data:entries.map(e=>e[1]),
+      borderColor:'#1a56db',backgroundColor:'#1a56db14',
+      fill:true,tension:.4,pointRadius:3,pointHoverRadius:5,borderWidth:2,
+    }];
+  }
+
+  const ctx=document.getElementById('c-timeline').getContext('2d');
+  charts['tl']=new Chart(ctx,{
+    type:'line',
+    data:{labels:entries.map(e=>monthLabel(e[0])),datasets},
+    options:{...CHART_DEFAULTS,responsive:true,
+      plugins:{...CHART_DEFAULTS.plugins,
+        legend:{display:datasets.length>1,labels:{color:'#6b7280',font:{family:'Inter',size:11},padding:14,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{...CHART_DEFAULTS.plugins.tooltip,callbacks:{label:ctx=>' '+ctx.dataset.label+': '+Rs(ctx.raw)}}
+      },
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{family:'Inter',size:11},maxTicksLimit:12},grid:{display:false},border:{display:false}},
+        y:{ticks:{color:'#9ca3af',font:{family:'Inter',size:11},callback:v=>Rs(v)},grid:{color:'#f3f4f6'},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderConvenio() {
+  dc('cv');
+  const agg={};
+  filtered.filter(r=>r.STATUS==='REALIZADO').forEach(r=>{ const c=r.CONVENIO||'Outros'; agg[c]=(agg[c]||0)+r.VALOR; });
+  const entries=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const ctx=document.getElementById('c-convenio').getContext('2d');
+  charts['cv']=new Chart(ctx,{
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:'#1a56db22',borderColor:'#1a56db',borderWidth:1.5,borderRadius:4,borderSkipped:false}]},
+    options:{...CHART_DEFAULTS,responsive:true,indexAxis:'y',
+      plugins:{...CHART_DEFAULTS.plugins,tooltip:{...CHART_DEFAULTS.plugins.tooltip,callbacks:{label:ctx=>' '+Rs(ctx.raw)}}},
+      scales:{
+        x:{ticks:{color:'#9ca3af',font:{family:'Inter',size:10},callback:v=>Rs(v)},grid:{color:'#f3f4f6'},border:{display:false}},
+        y:{ticks:{color:'#374151',font:{family:'Inter',size:10}},grid:{display:false},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderEstado() {
+  dc('est');
+  const agg={};
+  filtered.filter(r=>r.STATUS==='REALIZADO').forEach(r=>{ const e=r.ESTADO||'?'; agg[e]=(agg[e]||0)+1; });
+  const entries=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const pal=['#1a56db','#7c3aed','#059669','#d97706','#dc2626','#6b7280','#0891b2','#be185d'];
+  const ctx=document.getElementById('c-estado').getContext('2d');
+  charts['est']=new Chart(ctx,{
+    type:'pie',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:pal,borderColor:'#fff',borderWidth:2,hoverOffset:4}]},
+    options:{...CHART_DEFAULTS,responsive:true,
+      plugins:{...CHART_DEFAULTS.plugins,
+        legend:{display:true,position:'right',labels:{color:'#6b7280',font:{family:'Inter',size:11},padding:10,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{...CHART_DEFAULTS.plugins.tooltip,callbacks:{label:ctx=>' '+ctx.label+': '+ctx.raw}}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// TABLES
+// ═══════════════════════════════════════════════
+function renderMedicos() {
+  const useValor=medViewMode==='valor';
+  const map={};
+  filtered.forEach(r=>{
+    const m=r.MEDICO||'N/I';
+    if(!map[m]) map[m]={real:0,vReal:0,total:0};
+    map[m].total++;
+    if(r.STATUS==='REALIZADO'){map[m].real++;map[m].vReal+=r.VALOR;}
+  });
+  const list=Object.entries(map)
+    .sort((a,b)=>useValor?b[1].vReal-a[1].vReal:b[1].real-a[1].real)
+    .slice(0,15);
+  const maxV=list[0]?list[0][1].vReal:1;
+
+  document.getElementById('t-medicos').innerHTML=list.map(([med,s],i)=>{
+    const taxa=s.total>0?(s.real/s.total*100).toFixed(0):0;
+    const pill=taxa>=50?'pill-green':taxa>=25?'pill-amber':'pill-red';
+    return `<tr>
+      <td class="td-rank">${i+1}</td>
+      <td class="td-main">${med}</td>
+      <td class="td-num">${s.real}</td>
+      <td class="td-num"><strong>${Rs(s.vReal)}</strong></td>
+      <td class="td-num">${s.real>0?Rs(s.vReal/s.real):'–'}</td>
+      <td><span class="pill ${pill}">${taxa}%</span></td>
+      <td><div class="prog-bar"><div class="prog-fill" style="width:${s.vReal/maxV*100}%;background:${SOC_COLORS['SAO JUDAS']}"></div></div></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty"><span>📭</span>Nenhum dado com os filtros atuais</td></tr>';
+}
+
+function renderTecnicos() {
+  const map={};
+  filtered.forEach(r=>{
+    const t=r.TECNICO||'N/I';
+    if(!map[t]) map[t]={total:0,real:0,neg:0,can:0};
+    map[t].total++;
+    if(r.STATUS==='REALIZADO')map[t].real++;
+    if(r.STATUS==='NEGADO')map[t].neg++;
+    if(r.STATUS==='CANCELADO')map[t].can++;
+  });
+  const list=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,12);
+
+  document.getElementById('t-tecnicos').innerHTML=list.map(([tec,s],i)=>{
+    const taxa=s.total>0?(s.real/s.total*100).toFixed(0):0;
+    const pill=taxa>=50?'pill-green':taxa>=30?'pill-amber':'pill-red';
+    return `<tr>
+      <td class="td-rank">${i+1}</td>
+      <td class="td-main">${tec}</td>
+      <td class="td-num">${s.total}</td>
+      <td class="td-num">${s.real}</td>
+      <td class="td-num">${s.neg}</td>
+      <td class="td-num">${s.can}</td>
+      <td><span class="pill ${pill}">${taxa}%</span></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty"><span>📭</span>Nenhum dado</td></tr>';
+}
+
+// ═══════════════════════════════════════════════
+// TOGGLE VIEWS
+// ═══════════════════════════════════════════════
+function setChartView(mode, btn) {
+  chartViewMode=mode;
+  btn.closest('.section-toggle').querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStatusDonut(); renderSocBar();
+}
+
+function setTimeView(mode, btn) {
+  timeViewMode=mode;
+  btn.closest('.section-toggle').querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline();
+}
+
+function setMedView(mode, btn) {
+  medViewMode=mode;
+  btn.closest('.section-toggle').querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMedicos();
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function show(id){ document.getElementById(id).style.display=''; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+
+function setStatus(msg, loading) {
+  document.getElementById('status-text').textContent=msg;
+  document.getElementById('status-dot').className='dot'+(loading?' loading':'');
+}
+
+// Auto-refresh every 5 min if URL set
+setInterval(()=>{
+  if(document.getElementById('sheet-url').value.trim() && allData.length>0) loadData();
+}, 5*60*1000);
+
+Chart.defaults.font.family='Inter';
+</script>
+</body>
+</html>
